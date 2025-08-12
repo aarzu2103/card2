@@ -114,9 +114,10 @@ function createOrder($data) {
         $orderNumber = 'ORD' . date('Ymd') . rand(1000, 9999);
         
         // Insert order
-        $stmt = $pdo->prepare("INSERT INTO orders (order_number, user_name, user_phone, user_email, total_amount, final_amount, status) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        $stmt = $pdo->prepare("INSERT INTO orders (order_number, user_id, user_name, user_phone, user_email, total_amount, final_amount, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
         $stmt->execute([
             $orderNumber,
+            $data['user_id'] ?? null,
             $data['user_name'],
             $data['user_phone'],
             $data['user_email'],
@@ -633,13 +634,13 @@ function getDashboardStats() {
         $stats = [];
         
         // Today's orders
-        $stmt = $pdo->query("SELECT COUNT(*) as count, COALESCE(SUM(final_amount), 0) as revenue FROM orders WHERE DATE(created_at) = CURDATE()");
+        $stmt = $pdo->query("SELECT COUNT(*) as count, COALESCE(SUM(final_amount), 0) as revenue FROM orders WHERE DATE(created_at) = CURDATE() AND payment_status = 'paid'");
         $today = $stmt->fetch();
         $stats['today_orders'] = $today['count'];
         $stats['today_revenue'] = $today['revenue'];
         
         // This month's stats
-        $stmt = $pdo->query("SELECT COUNT(*) as count, COALESCE(SUM(final_amount), 0) as revenue FROM orders WHERE MONTH(created_at) = MONTH(CURDATE()) AND YEAR(created_at) = YEAR(CURDATE())");
+        $stmt = $pdo->query("SELECT COUNT(*) as count, COALESCE(SUM(final_amount), 0) as revenue FROM orders WHERE MONTH(created_at) = MONTH(CURDATE()) AND YEAR(created_at) = YEAR(CURDATE()) AND payment_status = 'paid'");
         $month = $stmt->fetch();
         $stats['month_orders'] = $month['count'];
         $stats['month_revenue'] = $month['revenue'];
@@ -658,6 +659,16 @@ function getDashboardStats() {
         $stmt = $pdo->query("SELECT COUNT(*) as count FROM reviews WHERE status = 'pending'");
         $reviews = $stmt->fetch();
         $stats['pending_reviews'] = $reviews['count'];
+        
+        // Total users
+        $stmt = $pdo->query("SELECT COUNT(*) as count FROM users WHERE status = 'active'");
+        $users = $stmt->fetch();
+        $stats['total_users'] = $users['count'];
+        
+        // Total inquiries
+        $stmt = $pdo->query("SELECT COUNT(*) as count FROM inquiries");
+        $inquiries = $stmt->fetch();
+        $stats['total_inquiries'] = $inquiries['count'];
         
         return $stats;
     } catch (PDOException $e) {
@@ -679,6 +690,74 @@ function getRevenueChart($days = 7) {
         return $stmt->fetchAll();
     } catch (PDOException $e) {
         return [];
+    }
+}
+
+// Enhanced Admin Logout
+function adminLogout() {
+    session_start();
+    session_unset();
+    session_destroy();
+    
+    // Clear any cookies
+    if (isset($_COOKIE[session_name()])) {
+        setcookie(session_name(), '', time() - 3600, '/');
+    }
+    
+    return true;
+}
+
+// Enhanced User Profile Update
+function updateUserProfile($userId, $data) {
+    global $pdo;
+    try {
+        $stmt = $pdo->prepare("UPDATE users SET name = ?, email = ?, phone = ?, profile_image_url = ? WHERE id = ?");
+        return $stmt->execute([
+            $data['name'],
+            $data['email'],
+            $data['phone'],
+            $data['profile_image_url'] ?? null,
+            $userId
+        ]);
+    } catch (PDOException $e) {
+        return false;
+    }
+}
+
+// Enhanced Admin Profile Update
+function updateAdminProfile($adminId, $data) {
+    global $pdo;
+    try {
+        $stmt = $pdo->prepare("UPDATE admins SET username = ?, email = ?, profile_image_url = ? WHERE id = ?");
+        return $stmt->execute([
+            $data['username'],
+            $data['email'],
+            $data['profile_image_url'] ?? null,
+            $adminId
+        ]);
+    } catch (PDOException $e) {
+        return false;
+    }
+}
+
+function changeAdminPassword($adminId, $currentPassword, $newPassword) {
+    global $pdo;
+    try {
+        // Verify current password
+        $stmt = $pdo->prepare("SELECT password_hash FROM admins WHERE id = ?");
+        $stmt->execute([$adminId]);
+        $admin = $stmt->fetch();
+        
+        if (!$admin || !password_verify($currentPassword, $admin['password_hash'])) {
+            return false;
+        }
+        
+        // Update password
+        $newPasswordHash = password_hash($newPassword, PASSWORD_DEFAULT);
+        $stmt = $pdo->prepare("UPDATE admins SET password_hash = ? WHERE id = ?");
+        return $stmt->execute([$newPasswordHash, $adminId]);
+    } catch (PDOException $e) {
+        return false;
     }
 }
 
