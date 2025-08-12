@@ -16,70 +16,81 @@ $messageType = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
     
-    if ($action === 'add_product') {
+    if ($action === 'add_inquiry_product') {
         $productData = [
             'title' => sanitizeInput($_POST['title']),
             'description' => sanitizeInput($_POST['description']),
             'price' => floatval($_POST['price']),
-            'discount_price' => !empty($_POST['discount_price']) ? floatval($_POST['discount_price']) : null,
-            'qty_stock' => intval($_POST['qty_stock']),
             'image_url' => sanitizeInput($_POST['image_url']),
-            'inquiry_only' => isset($_POST['inquiry_only']) ? 1 : 0,
-            'status' => $_POST['status'] ?? 'active'
+            'file_size' => intval($_POST['file_size']),
+            'status' => $_POST['status'] ?? 'active',
+            'sort_order' => intval($_POST['sort_order'])
         ];
         
-        if (addProduct($productData)) {
-            $message = 'Product added successfully!';
-            $messageType = 'success';
-        } else {
-            $message = 'Error adding product';
+        // Validate file size (200KB limit)
+        if ($productData['file_size'] > 204800) {
+            $message = 'Image file size must be under 200KB';
             $messageType = 'error';
+        } else {
+            if (addInquiryProduct($productData)) {
+                $message = 'Inquiry product added successfully!';
+                $messageType = 'success';
+            } else {
+                $message = 'Error adding inquiry product';
+                $messageType = 'error';
+            }
         }
     }
     
-    if ($action === 'update_product') {
+    if ($action === 'update_inquiry_product') {
         $productId = intval($_POST['product_id']);
         $productData = [
             'title' => sanitizeInput($_POST['title']),
             'description' => sanitizeInput($_POST['description']),
             'price' => floatval($_POST['price']),
-            'discount_price' => !empty($_POST['discount_price']) ? floatval($_POST['discount_price']) : null,
-            'qty_stock' => intval($_POST['qty_stock']),
             'image_url' => sanitizeInput($_POST['image_url']),
-            'inquiry_only' => isset($_POST['inquiry_only']) ? 1 : 0,
-            'status' => $_POST['status'] ?? 'active'
+            'file_size' => intval($_POST['file_size']),
+            'status' => $_POST['status'] ?? 'active',
+            'sort_order' => intval($_POST['sort_order'])
         ];
         
-        if (updateProduct($productId, $productData)) {
-            $message = 'Product updated successfully!';
-            $messageType = 'success';
-        } else {
-            $message = 'Error updating product';
+        // Validate file size (200KB limit)
+        if ($productData['file_size'] > 204800) {
+            $message = 'Image file size must be under 200KB';
             $messageType = 'error';
+        } else {
+            if (updateInquiryProduct($productId, $productData)) {
+                $message = 'Inquiry product updated successfully!';
+                $messageType = 'success';
+            } else {
+                $message = 'Error updating inquiry product';
+                $messageType = 'error';
+            }
         }
     }
     
-    if ($action === 'delete_product') {
+    if ($action === 'delete_inquiry_product') {
         $productId = intval($_POST['product_id']);
-        if (deleteProduct($productId)) {
-            $message = 'Product deleted successfully!';
+        
+        if (deleteInquiryProduct($productId)) {
+            $message = 'Inquiry product deleted successfully!';
             $messageType = 'success';
         } else {
-            $message = 'Error deleting product';
+            $message = 'Error deleting inquiry product';
             $messageType = 'error';
         }
     }
 }
 
-// Get all products
-$products = getAllProducts();
+// Get all inquiry products
+$inquiryProducts = getInquiryProducts('all');
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Products - Admin</title>
+    <title>Inquiry Products - Admin</title>
     <link rel="stylesheet" href="../assets/css/admin.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
@@ -89,9 +100,9 @@ $products = getAllProducts();
     
     <main class="main-content">
         <div class="page-header">
-            <h1><i class="fas fa-box"></i> Products Management</h1>
+            <h1><i class="fas fa-question-circle"></i> Inquiry Products Management</h1>
             <button class="btn btn-primary" onclick="showAddProductModal()">
-                <i class="fas fa-plus"></i> Add Product
+                <i class="fas fa-plus"></i> Add Inquiry Product
             </button>
         </div>
         
@@ -103,7 +114,8 @@ $products = getAllProducts();
         
         <div class="dashboard-card">
             <div class="card-header">
-                <h3>All Products</h3>
+                <h3>Inquiry-Only Products</h3>
+                <p>Products that customers can inquire about (no direct purchase)</p>
             </div>
             <div class="card-content">
                 <div class="table-responsive">
@@ -113,28 +125,26 @@ $products = getAllProducts();
                                 <th>Image</th>
                                 <th>Title</th>
                                 <th>Price</th>
-                                <th>Stock</th>
+                                <th>File Size</th>
                                 <th>Status</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <?php foreach ($products as $product): ?>
+                            <?php foreach ($inquiryProducts as $product): ?>
                             <tr>
                                 <td>
                                     <img src="<?php echo htmlspecialchars($product['image_url']); ?>" 
                                          alt="Product" style="width: 50px; height: 50px; object-fit: cover; border-radius: 5px;">
                                 </td>
                                 <td><?php echo htmlspecialchars($product['title']); ?></td>
+                                <td>₹<?php echo number_format($product['price']); ?></td>
                                 <td>
-                                    <?php if ($product['discount_price']): ?>
-                                        <span class="original-price">₹<?php echo number_format($product['price']); ?></span>
-                                        <span class="discount-price">₹<?php echo number_format($product['discount_price']); ?></span>
-                                    <?php else: ?>
-                                        ₹<?php echo number_format($product['price']); ?>
-                                    <?php endif; ?>
+                                    <?php 
+                                    $sizeKB = $product['file_size'] ? round($product['file_size'] / 1024, 1) : 0;
+                                    echo $sizeKB . ' KB';
+                                    ?>
                                 </td>
-                                <td><?php echo $product['qty_stock']; ?></td>
                                 <td>
                                     <span class="status status-<?php echo $product['status']; ?>">
                                         <?php echo ucfirst($product['status']); ?>
@@ -161,11 +171,11 @@ $products = getAllProducts();
     <div id="addProductModal" class="modal" style="display: none;">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>Add New Product</h3>
+                <h3>Add New Inquiry Product</h3>
                 <button class="close-modal" onclick="closeModal('addProductModal')">&times;</button>
             </div>
             <form method="POST">
-                <input type="hidden" name="action" value="add_product">
+                <input type="hidden" name="action" value="add_inquiry_product">
                 
                 <div class="form-group">
                     <label>Product Title</label>
@@ -177,22 +187,27 @@ $products = getAllProducts();
                     <textarea name="description" rows="3"></textarea>
                 </div>
                 
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Price (₹)</label>
-                        <input type="number" name="price" step="0.01" required>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label>Discount Price (₹)</label>
-                        <input type="number" name="discount_price" step="0.01">
-                    </div>
+                <div class="form-group">
+                    <label>Price (₹)</label>
+                    <input type="number" name="price" step="0.01" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>Image URL</label>
+                    <input type="url" name="image_url" required>
+                    <small>Supported formats: JPG, PNG, GIF. Max size: 200KB</small>
+                </div>
+                
+                <div class="form-group">
+                    <label>File Size (bytes)</label>
+                    <input type="number" name="file_size" max="204800" required>
+                    <small>Maximum 200KB (204,800 bytes)</small>
                 </div>
                 
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Stock Quantity</label>
-                        <input type="number" name="qty_stock" value="0">
+                        <label>Sort Order</label>
+                        <input type="number" name="sort_order" value="0">
                     </div>
                     
                     <div class="form-group">
@@ -202,18 +217,6 @@ $products = getAllProducts();
                             <option value="inactive">Inactive</option>
                         </select>
                     </div>
-                </div>
-                
-                <div class="form-group">
-                    <label>Image URL</label>
-                    <input type="url" name="image_url" required>
-                </div>
-                
-                <div class="form-group">
-                    <label>
-                        <input type="checkbox" name="inquiry_only">
-                        Inquiry Only (No Add to Cart)
-                    </label>
                 </div>
                 
                 <div class="form-actions">
@@ -228,11 +231,11 @@ $products = getAllProducts();
     <div id="editProductModal" class="modal" style="display: none;">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>Edit Product</h3>
+                <h3>Edit Inquiry Product</h3>
                 <button class="close-modal" onclick="closeModal('editProductModal')">&times;</button>
             </div>
-            <form method="POST" id="editProductForm">
-                <input type="hidden" name="action" value="update_product">
+            <form method="POST">
+                <input type="hidden" name="action" value="update_inquiry_product">
                 <input type="hidden" name="product_id" id="editProductId">
                 
                 <div class="form-group">
@@ -245,22 +248,25 @@ $products = getAllProducts();
                     <textarea name="description" id="editDescription" rows="3"></textarea>
                 </div>
                 
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Price (₹)</label>
-                        <input type="number" name="price" id="editPrice" step="0.01" required>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label>Discount Price (₹)</label>
-                        <input type="number" name="discount_price" id="editDiscountPrice" step="0.01">
-                    </div>
+                <div class="form-group">
+                    <label>Price (₹)</label>
+                    <input type="number" name="price" id="editPrice" step="0.01" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>Image URL</label>
+                    <input type="url" name="image_url" id="editImageUrl" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>File Size (bytes)</label>
+                    <input type="number" name="file_size" id="editFileSize" max="204800" required>
                 </div>
                 
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Stock Quantity</label>
-                        <input type="number" name="qty_stock" id="editStock">
+                        <label>Sort Order</label>
+                        <input type="number" name="sort_order" id="editSortOrder">
                     </div>
                     
                     <div class="form-group">
@@ -270,18 +276,6 @@ $products = getAllProducts();
                             <option value="inactive">Inactive</option>
                         </select>
                     </div>
-                </div>
-                
-                <div class="form-group">
-                    <label>Image URL</label>
-                    <input type="url" name="image_url" id="editImageUrl" required>
-                </div>
-                
-                <div class="form-group">
-                    <label>
-                        <input type="checkbox" name="inquiry_only" id="editInquiryOnly">
-                        Inquiry Only (No Add to Cart)
-                    </label>
                 </div>
                 
                 <div class="form-actions">
@@ -298,34 +292,29 @@ $products = getAllProducts();
         }
         
         function editProduct(productId) {
-            // Fetch product data and populate modal
-            fetch(`../api/get-product.php?id=${productId}`)
-                .then(response => response.json())
-                .then(product => {
-                    document.getElementById('editProductId').value = product.id;
-                    document.getElementById('editTitle').value = product.title;
-                    document.getElementById('editDescription').value = product.description || '';
-                    document.getElementById('editPrice').value = product.price;
-                    document.getElementById('editDiscountPrice').value = product.discount_price || '';
-                    document.getElementById('editStock').value = product.qty_stock;
-                    document.getElementById('editStatus').value = product.status;
-                    document.getElementById('editImageUrl').value = product.image_url;
-                    document.getElementById('editInquiryOnly').checked = product.inquiry_only == 1;
-                    
-                    document.getElementById('editProductModal').style.display = 'block';
-                })
-                .catch(error => {
-                    console.error('Error fetching product:', error);
-                    alert('Error loading product data');
-                });
+            const products = <?php echo json_encode($inquiryProducts); ?>;
+            const product = products.find(p => p.id == productId);
+            
+            if (product) {
+                document.getElementById('editProductId').value = product.id;
+                document.getElementById('editTitle').value = product.title;
+                document.getElementById('editDescription').value = product.description || '';
+                document.getElementById('editPrice').value = product.price;
+                document.getElementById('editImageUrl').value = product.image_url;
+                document.getElementById('editFileSize').value = product.file_size || 0;
+                document.getElementById('editSortOrder').value = product.sort_order;
+                document.getElementById('editStatus').value = product.status;
+                
+                document.getElementById('editProductModal').style.display = 'block';
+            }
         }
         
         function deleteProduct(productId) {
-            if (confirm('Are you sure you want to delete this product?')) {
+            if (confirm('Are you sure you want to delete this inquiry product?')) {
                 const form = document.createElement('form');
                 form.method = 'POST';
                 form.innerHTML = `
-                    <input type="hidden" name="action" value="delete_product">
+                    <input type="hidden" name="action" value="delete_inquiry_product">
                     <input type="hidden" name="product_id" value="${productId}">
                 `;
                 document.body.appendChild(form);

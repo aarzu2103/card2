@@ -49,27 +49,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $message = 'New passwords do not match';
             $messageType = 'error';
         } else {
-            // Get current admin data
-            $stmt = $pdo->prepare("SELECT password_hash FROM admins WHERE id = ?");
-            $stmt->execute([$adminId]);
-            $admin = $stmt->fetch();
-            
-            if ($admin && password_verify($currentPassword, $admin['password_hash'])) {
-                $newPasswordHash = password_hash($newPassword, PASSWORD_DEFAULT);
-                
-                try {
-                    $stmt = $pdo->prepare("UPDATE admins SET password_hash = ? WHERE id = ?");
-                    if ($stmt->execute([$newPasswordHash, $adminId])) {
-                        $message = 'Password changed successfully!';
-                        $messageType = 'success';
-                    } else {
-                        $message = 'Error changing password';
-                        $messageType = 'error';
-                    }
-                } catch (PDOException $e) {
-                    $message = 'Error changing password';
-                    $messageType = 'error';
-                }
+            if (changeAdminPassword($adminId, $currentPassword, $newPassword)) {
+                $message = 'Password changed successfully!';
+                $messageType = 'success';
             } else {
                 $message = 'Current password is incorrect';
                 $messageType = 'error';

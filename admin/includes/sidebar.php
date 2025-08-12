@@ -77,6 +77,13 @@
             </li>
             
             <li class="nav-item">
+                <a href="inquiry-products.php" class="nav-link <?php echo basename($_SERVER['PHP_SELF']) === 'inquiry-products.php' ? 'active' : ''; ?>">
+                    <i class="fas fa-question-circle"></i>
+                    <span>Inquiry Products</span>
+                </a>
+            </li>
+            
+            <li class="nav-item">
                 <a href="social-media.php" class="nav-link <?php echo basename($_SERVER['PHP_SELF']) === 'social-media.php' ? 'active' : ''; ?>">
                     <i class="fas fa-share-alt"></i>
                     <span>Social Media</span>

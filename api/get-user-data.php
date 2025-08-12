@@ -18,17 +18,31 @@ $type = $_GET['type'] ?? 'profile';
 try {
     switch ($type) {
         case 'profile':
-            $profile = getUserProfile($userId);
+            $stmt = $pdo->prepare("SELECT id, name, username, email, phone, profile_image_url, last_login, created_at FROM users WHERE id = ?");
+            $stmt->execute([$userId]);
+            $profile = $stmt->fetch();
             echo json_encode(['success' => true, 'data' => $profile]);
             break;
             
         case 'orders':
-            $orders = getUserOrdersWithItems($userId);
+            $stmt = $pdo->prepare("
+                SELECT o.*, 
+                       GROUP_CONCAT(CONCAT(oi.product_title, ' (', oi.quantity, 'x)') SEPARATOR ', ') as items_summary
+                FROM orders o 
+                LEFT JOIN order_items oi ON o.id = oi.order_id 
+                WHERE o.user_id = ? 
+                GROUP BY o.id 
+                ORDER BY o.created_at DESC
+            ");
+            $stmt->execute([$userId]);
+            $orders = $stmt->fetchAll();
             echo json_encode(['success' => true, 'data' => $orders]);
             break;
             
         case 'inquiries':
-            $inquiries = getUserInquiries($userId);
+            $stmt = $pdo->prepare("SELECT * FROM inquiries WHERE user_id = ? ORDER BY created_at DESC");
+            $stmt->execute([$userId]);
+            $inquiries = $stmt->fetchAll();
             echo json_encode(['success' => true, 'data' => $inquiries]);
             break;
             

@@ -30,6 +30,7 @@ if (empty($input['total_amount']) || !is_numeric($input['total_amount'])) {
 
 // Prepare order data
 $orderData = [
+    'user_id' => $_SESSION['user_id'] ?? null,
     'user_name' => sanitizeInput($input['user_name'] ?? 'Guest User'),
     'user_phone' => sanitizeInput($input['user_phone'] ?? ''),
     'user_email' => sanitizeInput($input['user_email'] ?? ''),

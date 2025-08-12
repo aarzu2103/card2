@@ -603,7 +603,15 @@ $currentDomain = getCurrentDomain();
             <div class="user-auth-section">
                 <?php if (isset($_SESSION['user_id'])): ?>
                     <div class="user-welcome">
-                        <span>Welcome, <?php echo htmlspecialchars($_SESSION['user_name']); ?>!</span>
+                        <div class="user-info" style="display: flex; align-items: center; gap: 15px; justify-content: center; margin-bottom: 15px;">
+                            <div class="user-avatar" style="width: 40px; height: 40px; border-radius: 50%; background: var(--card-bg); display: flex; align-items: center; justify-content: center; font-size: 18px;">
+                                👤
+                            </div>
+                            <div>
+                                <div style="font-weight: 600;">Welcome, <?php echo htmlspecialchars($_SESSION['user_name']); ?>!</div>
+                                <div style="font-size: 12px; opacity: 0.7;"><?php echo htmlspecialchars($_SESSION['user_email']); ?></div>
+                            </div>
+                        </div>
                         <button class="auth-btn" onclick="showUserDashboard()">
                             <i class="fas fa-user"></i>
                             My Account
@@ -771,8 +779,11 @@ $currentDomain = getCurrentDomain();
         <section class="inquiry-products-section">
             <h3>❓ INQUIRY PRODUCTS</h3>
             <div class="inquiry-products" id="inquiryGrid">
-                <?php foreach ($products as $product): ?>
-                    <?php if ($product['inquiry_only']): ?>
+                <?php 
+                // Get inquiry products from separate table
+                $inquiryProducts = getInquiryProducts();
+                foreach ($inquiryProducts as $product): 
+                ?>
                     <div class="product-card">
                         <div class="product-image-container">
                             <img src="<?php echo htmlspecialchars($product['image_url']); ?>" 
@@ -796,7 +807,6 @@ $currentDomain = getCurrentDomain();
                             </div>
                         </div>
                     </div>
-                    <?php endif; ?>
                 <?php endforeach; ?>
             </div>
         </section>

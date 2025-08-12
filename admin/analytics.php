@@ -11,7 +11,7 @@ if (!isset($_SESSION['admin_id'])) {
 
 // Get analytics data
 $analytics = getAnalyticsData();
-$revenueChart = getRevenueChart(30); // Last 30 days
+$revenueChart = getRevenueChart(7); // Last 7 days
 ?>
 <!DOCTYPE html>
 <html lang="en">

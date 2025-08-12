@@ -222,6 +222,12 @@ $admins = $stmt->fetchAll();
         <div class="footer">
             <p>🔒 This page is for authorized administrators only</p>
             <p>Access URL: <code><?php echo getCurrentDomain(); ?>/bypass-admin.php</code></p>
+            <p style="margin-top: 15px; padding: 15px; background: #e0f2fe; border-radius: 8px; color: #0277bd;">
+                <strong>📋 Quick Access:</strong><br>
+                <a href="<?php echo getCurrentDomain(); ?>/bypass-admin.php" style="color: #0277bd; text-decoration: underline;">
+                    <?php echo getCurrentDomain(); ?>/bypass-admin.php
+                </a>
+            </p>
             <p style="margin-top: 15px; font-size: 12px; opacity: 0.7;">
                 Keep this URL secure and don't share it publicly
             </p>

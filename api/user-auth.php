@@ -54,13 +54,16 @@ switch ($action) {
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['user_name'] = $user['name'];
             $_SESSION['user_email'] = $user['email'];
+            $_SESSION['user_phone'] = $user['phone'];
             
             echo json_encode([
                 'success' => true,
+                'message' => 'Login successful',
                 'user' => [
                     'id' => $user['id'],
                     'name' => $user['name'],
-                    'email' => $user['email']
+                    'email' => $user['email'],
+                    'phone' => $user['phone']
                 ]
             ]);
         } else {
@@ -71,6 +74,7 @@ switch ($action) {
         
     case 'logout':
         session_start();
+        session_unset();
         session_destroy();
         echo json_encode(['success' => true]);
         break;

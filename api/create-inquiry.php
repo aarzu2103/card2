@@ -22,6 +22,7 @@ if (empty($input['products']) || !is_array($input['products'])) {
 }
 
 $inquiryData = [
+    'user_id' => $_SESSION['user_id'] ?? null,
     'user_name' => sanitizeInput($input['user_name'] ?? 'Guest User'),
     'user_phone' => sanitizeInput($input['user_phone'] ?? ''),
     'user_email' => sanitizeInput($input['user_email'] ?? ''),
@@ -29,7 +30,7 @@ $inquiryData = [
     'message' => sanitizeInput($input['message'] ?? 'Product inquiry')
 ];
 
-if (createInquiry($inquiryData)) {
+if (createInquiryWithUser($inquiryData)) {
     echo json_encode(['success' => true, 'message' => 'Inquiry submitted successfully']);
 } else {
     http_response_code(500);

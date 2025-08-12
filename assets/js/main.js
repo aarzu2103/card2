@@ -575,70 +575,24 @@ function confirmPayment() {
     // Close UPI modal first
     closeUPIModal();
     
-    // Show 5-minute timer and registration prompt
-    showPaymentTimer();
+    // Save order and clear cart
+    saveOrder();
 }
 
-function showPaymentTimer() {
-    const timerModal = document.createElement('div');
-    timerModal.className = 'payment-timer-modal';
-    timerModal.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.8);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 10000;
-        padding: 20px;
-    `;
-    
-    let timeLeft = 300; // 5 minutes in seconds
-    
-    timerModal.innerHTML = `
-        <div style="background: var(--card-bg); border-radius: 20px; padding: 30px; text-align: center; max-width: 400px; width: 100%;">
-            <h3 style="margin-bottom: 20px; color: var(--text-color);">Payment Confirmation</h3>
-            <div style="font-size: 48px; font-weight: bold; color: var(--accent-color); margin: 20px 0;" id="timerDisplay">5:00</div>
-            <p style="margin-bottom: 20px; color: var(--text-secondary);">Please complete your payment within the time limit and register to save your order history.</p>
-            <div style="display: flex; gap: 10px; justify-content: center;">
-                <button onclick="showRegisterForm(); document.body.removeChild(this.closest('.payment-timer-modal'))" 
-                        style="background: var(--primary-color); color: white; border: none; padding: 12px 20px; border-radius: 25px; cursor: pointer; font-weight: 600;">
-                    Register Now
-                </button>
-                <button onclick="document.body.removeChild(this.closest('.payment-timer-modal'))" 
-                        style="background: var(--secondary-color); color: white; border: none; padding: 12px 20px; border-radius: 25px; cursor: pointer; font-weight: 600;">
-                    Skip
-                </button>
-            </div>
-        </div>
-    `;
-    
-    document.body.appendChild(timerModal);
-    
-    const timerInterval = setInterval(() => {
-        timeLeft--;
-        const minutes = Math.floor(timeLeft / 60);
-        const seconds = timeLeft % 60;
-        document.getElementById('timerDisplay').textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-        
-        if (timeLeft <= 0) {
-            clearInterval(timerInterval);
-            document.body.removeChild(timerModal);
-            showMessage('Payment time expired. Please try again.', 'error');
-        }
-    }, 1000);
-}
 
 function saveOrder() {
+    if (cart.length === 0) {
+        showMessage('Cart is empty', 'error');
+        return;
+    }
+    
     const orderData = {
+        user_id: getCurrentUserId(),
         items: cart,
         total_amount: cart.reduce((sum, item) => sum + (item.price * item.quantity), 0),
-        user_name: 'Guest User', // This could be collected from a form
-        user_phone: '', // This could be collected from a form
-        user_email: '' // This could be collected from a form
+        user_name: getCurrentUserName() || 'Guest User',
+        user_phone: getCurrentUserPhone() || '',
+        user_email: getCurrentUserEmail() || ''
     };
     
     fetch('api/create-order.php', {
@@ -658,10 +612,43 @@ function saveOrder() {
             toggleCart();
             showMessage('Order placed successfully!', 'success');
         }
-    })
+            showMessage(data.error || 'Error placing order', 'error');
     .catch(error => {
         console.error('Error saving order:', error);
+        showMessage('Error placing order', 'error');
     });
+}
+
+// User session functions
+function getCurrentUserId() {
+    // This would be set when user logs in
+    return sessionStorage.getItem('user_id') || null;
+}
+
+function getCurrentUserName() {
+    return sessionStorage.getItem('user_name') || null;
+}
+
+function getCurrentUserPhone() {
+    return sessionStorage.getItem('user_phone') || null;
+}
+
+function getCurrentUserEmail() {
+    return sessionStorage.getItem('user_email') || null;
+}
+
+function setUserSession(user) {
+    sessionStorage.setItem('user_id', user.id);
+    sessionStorage.setItem('user_name', user.name);
+    sessionStorage.setItem('user_email', user.email);
+    sessionStorage.setItem('user_phone', user.phone || '');
+}
+
+function clearUserSession() {
+    sessionStorage.removeItem('user_id');
+    sessionStorage.removeItem('user_name');
+    sessionStorage.removeItem('user_email');
+    sessionStorage.removeItem('user_phone');
 }
 
 // User Authentication Functions
@@ -704,6 +691,7 @@ function userLogin(event) {
     .then(data => {
         if (data.success) {
             showMessage('Login successful!', 'success');
+            setUserSession(data.user);
             closeAuthModal();
             location.reload();
         } else {
@@ -762,19 +750,15 @@ function userLogout() {
         body: JSON.stringify({ action: 'logout' })
     })
     .then(() => {
+        clearUserSession();
         location.reload();
     });
-}
-
-function isUserLoggedIn() {
-    // Check if user session exists (this would need to be implemented based on your session handling)
-    return false; // Placeholder
 }
 
 function showUserDashboard() {
     const dashboardModal = document.getElementById('userDashboardModal');
     dashboardModal.classList.add('active');
-    loadUserProfile();
+    showTab('profile');
 }
 
 function closeUserDashboard() {
@@ -812,27 +796,134 @@ function showTab(tabName) {
 }
 
 function loadUserProfile() {
-    // Load user profile data
-    const profileTab = document.getElementById('profileTab');
-    profileTab.innerHTML = '<p>Loading profile...</p>';
-    
-    // This would fetch user profile data from API
+    fetch('api/get-user-data.php?type=profile')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const profileTab = document.getElementById('profileTab');
+                const user = data.data;
+                profileTab.innerHTML = `
+                    <div class="user-profile">
+                        <div class="profile-header">
+                            <div class="profile-avatar">
+                                ${user.profile_image_url ? 
+                                    `<img src="${user.profile_image_url}" alt="Profile" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover;">` :
+                                    '<div style="width: 80px; height: 80px; border-radius: 50%; background: #f3f4f6; display: flex; align-items: center; justify-content: center; font-size: 32px;">👤</div>'
+                                }
+                            </div>
+                            <div class="profile-info">
+                                <h3>${user.name}</h3>
+                                <p>@${user.username}</p>
+                                <p>${user.email}</p>
+                                <p>${user.phone || 'No phone number'}</p>
+                            </div>
+                        </div>
+                        <div class="profile-stats">
+                            <p><strong>Member since:</strong> ${new Date(user.created_at).toLocaleDateString()}</p>
+                            <p><strong>Last login:</strong> ${user.last_login ? new Date(user.last_login).toLocaleDateString() : 'Never'}</p>
+                        </div>
+                    </div>
+                `;
+            } else {
+                document.getElementById('profileTab').innerHTML = '<p>Error loading profile</p>';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading profile:', error);
+            document.getElementById('profileTab').innerHTML = '<p>Error loading profile</p>';
+        });
 }
 
 function loadUserOrders() {
-    // Load user orders
-    const ordersTab = document.getElementById('ordersTab');
-    ordersTab.innerHTML = '<p>Loading orders...</p>';
-    
-    // This would fetch user orders from API
+    fetch('api/get-user-data.php?type=orders')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const ordersTab = document.getElementById('ordersTab');
+                const orders = data.data;
+                
+                if (orders.length === 0) {
+                    ordersTab.innerHTML = '<p style="text-align: center; opacity: 0.6; padding: 40px 0;">No orders found</p>';
+                    return;
+                }
+                
+                let ordersHtml = '<div class="user-orders">';
+                orders.forEach(order => {
+                    ordersHtml += `
+                        <div class="order-item" style="background: var(--card-bg); padding: 20px; border-radius: 12px; margin-bottom: 15px; border: 1px solid rgba(255,255,255,0.1);">
+                            <div class="order-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                <h4>Order #${order.order_number}</h4>
+                                <span class="status status-${order.status}" style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">
+                                    ${order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                                </span>
+                            </div>
+                            <div class="order-details">
+                                <p><strong>Items:</strong> ${order.items_summary || 'No items'}</p>
+                                <p><strong>Total:</strong> ₹${parseFloat(order.final_amount).toFixed(0)}</p>
+                                <p><strong>Payment:</strong> 
+                                    <span class="status status-${order.payment_status}" style="padding: 2px 8px; border-radius: 12px; font-size: 11px;">
+                                        ${(order.payment_status || 'pending').charAt(0).toUpperCase() + (order.payment_status || 'pending').slice(1)}
+                                    </span>
+                                </p>
+                                <p><strong>Date:</strong> ${new Date(order.created_at).toLocaleDateString()}</p>
+                            </div>
+                        </div>
+                    `;
+                });
+                ordersHtml += '</div>';
+                ordersTab.innerHTML = ordersHtml;
+            } else {
+                document.getElementById('ordersTab').innerHTML = '<p>Error loading orders</p>';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading orders:', error);
+            document.getElementById('ordersTab').innerHTML = '<p>Error loading orders</p>';
+        });
 }
 
 function loadUserInquiries() {
-    // Load user inquiries
-    const inquiriesTab = document.getElementById('inquiriesTab');
-    inquiriesTab.innerHTML = '<p>Loading inquiries...</p>';
-    
-    // This would fetch user inquiries from API
+    fetch('api/get-user-data.php?type=inquiries')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const inquiriesTab = document.getElementById('inquiriesTab');
+                const inquiries = data.data;
+                
+                if (inquiries.length === 0) {
+                    inquiriesTab.innerHTML = '<p style="text-align: center; opacity: 0.6; padding: 40px 0;">No inquiries found</p>';
+                    return;
+                }
+                
+                let inquiriesHtml = '<div class="user-inquiries">';
+                inquiries.forEach(inquiry => {
+                    const products = JSON.parse(inquiry.products || '[]');
+                    inquiriesHtml += `
+                        <div class="inquiry-item" style="background: var(--card-bg); padding: 20px; border-radius: 12px; margin-bottom: 15px; border: 1px solid rgba(255,255,255,0.1);">
+                            <div class="inquiry-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                <h4>Inquiry #${inquiry.id}</h4>
+                                <span class="status status-${inquiry.status}" style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">
+                                    ${inquiry.status.charAt(0).toUpperCase() + inquiry.status.slice(1)}
+                                </span>
+                            </div>
+                            <div class="inquiry-details">
+                                <p><strong>Products:</strong> ${products.length} items</p>
+                                <p><strong>Message:</strong> ${inquiry.message || 'No message'}</p>
+                                <p><strong>Date:</strong> ${new Date(inquiry.created_at).toLocaleDateString()}</p>
+                            </div>
+                        </div>
+                    `;
+                });
+                inquiriesHtml += '</div>';
+                inquiriesTab.innerHTML = inquiriesHtml;
+            } else {
+                document.getElementById('inquiriesTab').innerHTML = '<p>Error loading inquiries</p>';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading inquiries:', error);
+            document.getElementById('inquiriesTab').innerHTML = '<p>Error loading inquiries</p>';
+        });
 }
 
 // Free Website Request Functions
