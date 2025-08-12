@@ -613,6 +613,8 @@ function saveOrder() {
             showMessage('Order placed successfully!', 'success');
         }
             showMessage(data.error || 'Error placing order', 'error');
+    }
+    )
     .catch(error => {
         console.error('Error saving order:', error);
         showMessage('Error placing order', 'error');
